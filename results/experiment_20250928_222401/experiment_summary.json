@@ -1,0 +1,42 @@
+{
+  "experiment_id": "20250928_222401",
+  "timestamp": "2025-09-28T22:24:03.735806",
+  "experiment_dir": "results\\experiment_20250928_222401",
+  "files_created": [
+    {
+      "filename": "evaluation_metrics.json",
+      "path": "experiment_20250928_222401\\evaluation_metrics.json",
+      "size_bytes": 125
+    },
+    {
+      "filename": "evaluation_predictions.json",
+      "path": "experiment_20250928_222401\\evaluation_predictions.json",
+      "size_bytes": 4135
+    },
+    {
+      "filename": "evaluation_predictions_y_pred.npy",
+      "path": "experiment_20250928_222401\\evaluation_predictions_y_pred.npy",
+      "size_bytes": 456
+    },
+    {
+      "filename": "evaluation_predictions_y_true.npy",
+      "path": "experiment_20250928_222401\\evaluation_predictions_y_true.npy",
+      "size_bytes": 784
+    },
+    {
+      "filename": "forecast_vs_actual.png",
+      "path": "experiment_20250928_222401\\forecast_vs_actual.png",
+      "size_bytes": 332468
+    },
+    {
+      "filename": "metrics_comparison.png",
+      "path": "experiment_20250928_222401\\metrics_comparison.png",
+      "size_bytes": 99899
+    },
+    {
+      "filename": "residual_analysis.png",
+      "path": "experiment_20250928_222401\\residual_analysis.png",
+      "size_bytes": 498137
+    }
+  ]
+}

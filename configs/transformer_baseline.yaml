@@ -1,0 +1,26 @@
+seed: 42
+data:
+  tickers: [AAPL]
+  interval: 1d
+  window: 64
+  horizon: 1
+  target_col: close
+  feature_set: default
+  data_dir: data/processed
+training:
+  batch_size: 64
+  lr: 1e-3
+  epochs: 5
+  grad_clip: 1.0
+  ckpt_dir: experiments/checkpoints
+model:
+  type: transformer
+  d_model: 128
+  nhead: 4
+  num_layers: 2
+  dim_feedforward: 256
+  dropout: 0.1
+mlflow:
+  tracking_uri: ./mlruns
+  experiment_name: transformer_baseline
+

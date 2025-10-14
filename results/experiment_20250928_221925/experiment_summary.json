@@ -1,0 +1,12 @@
+{
+  "experiment_id": "20250928_221925",
+  "timestamp": "2025-09-28T22:19:25.518908",
+  "experiment_dir": "results\\experiment_20250928_221925",
+  "files_created": [
+    {
+      "filename": "config.json",
+      "path": "experiment_20250928_221925\\config.json",
+      "size_bytes": 681
+    }
+  ]
+}

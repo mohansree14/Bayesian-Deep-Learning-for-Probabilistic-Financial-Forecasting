@@ -1,0 +1,6 @@
+ticker: AAPL
+model: lstm  # or mc_dropout_lstm
+ckpt_dir: experiments/checkpoints
+data_dir: data/processed
+confidence_z: 1.96
+

@@ -1,0 +1,27 @@
+include README.md
+include LICENSE
+include CHANGELOG.md
+include CONTRIBUTING.md
+include requirements.txt
+include setup.py
+recursive-include configs *.yaml
+recursive-include src *.py
+recursive-include scripts *.py
+recursive-include app *.py
+recursive-include tests *.py
+recursive-include utils *.py
+recursive-include reports *.md
+recursive-include reports/figures *.png *.pdf
+recursive-include reports/tables *.md
+exclude fix_emojis.py
+exclude generate_figure_8.py
+global-exclude *.pyc
+global-exclude __pycache__
+global-exclude *.log
+global-exclude .DS_Store
+prune data/raw
+prune data/processed
+prune results
+prune mlruns
+prune .pytest_cache
+prune __pycache__

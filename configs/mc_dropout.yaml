@@ -1,0 +1,25 @@
+seed: 42
+data:
+  tickers: [AAPL]
+  interval: 1d
+  window: 64
+  horizon: 1
+  target_col: close
+  feature_set: default
+  data_dir: data/processed
+training:
+  batch_size: 64
+  lr: 1e-3
+  epochs: 5
+  grad_clip: 1.0
+  ckpt_dir: experiments/checkpoints
+model:
+  type: mc_dropout_lstm
+  hidden_size: 128
+  num_layers: 2
+  dropout: 0.3
+  mc_samples: 50
+mlflow:
+  tracking_uri: ./mlruns
+  experiment_name: mc_dropout
+

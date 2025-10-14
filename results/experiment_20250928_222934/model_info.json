@@ -1,0 +1,6 @@
+{
+  "type": "mc_dropout_lstm",
+  "input_dim": 21,
+  "parameters": 209537,
+  "trainable_parameters": 209537
+}

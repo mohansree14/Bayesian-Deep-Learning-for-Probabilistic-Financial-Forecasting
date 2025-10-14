@@ -1,0 +1,37 @@
+{
+  "experiment_id": "20250928_222410",
+  "timestamp": "2025-09-28T22:24:10.703494",
+  "experiment_dir": "results\\experiment_20250928_222410",
+  "files_created": [
+    {
+      "filename": "backtest_predictions.json",
+      "path": "experiment_20250928_222410\\backtest_predictions.json",
+      "size_bytes": 6286
+    },
+    {
+      "filename": "backtest_predictions_y_pred.npy",
+      "path": "experiment_20250928_222410\\backtest_predictions_y_pred.npy",
+      "size_bytes": 456
+    },
+    {
+      "filename": "backtest_predictions_y_std.npy",
+      "path": "experiment_20250928_222410\\backtest_predictions_y_std.npy",
+      "size_bytes": 456
+    },
+    {
+      "filename": "backtest_predictions_y_true.npy",
+      "path": "experiment_20250928_222410\\backtest_predictions_y_true.npy",
+      "size_bytes": 784
+    },
+    {
+      "filename": "backtest_results.json",
+      "path": "experiment_20250928_222410\\backtest_results.json",
+      "size_bytes": 1084
+    },
+    {
+      "filename": "forecast_with_uncertainty.png",
+      "path": "experiment_20250928_222410\\forecast_with_uncertainty.png",
+      "size_bytes": 418747
+    }
+  ]
+}

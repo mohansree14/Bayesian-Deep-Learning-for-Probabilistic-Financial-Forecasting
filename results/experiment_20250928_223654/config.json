@@ -1,0 +1,35 @@
+{
+  "data": {
+    "data_dir": "data/processed",
+    "feature_set": "default",
+    "horizon": 1,
+    "interval": "1d",
+    "target_col": "close",
+    "test_split": 0.15,
+    "tickers": [
+      "MSFT"
+    ],
+    "train_split": 0.7,
+    "valid_split": 0.15,
+    "window": 64
+  },
+  "mlflow": {
+    "experiment_name": "lstm_baseline",
+    "tracking_uri": "./mlruns"
+  },
+  "model": {
+    "dropout": 0.1,
+    "hidden_size": 128,
+    "input_dim": null,
+    "num_layers": 2,
+    "type": "mc_dropout_lstm"
+  },
+  "seed": 42,
+  "training": {
+    "batch_size": 64,
+    "ckpt_dir": "experiments/checkpoints",
+    "epochs": 5,
+    "grad_clip": 1.0,
+    "lr": 0.001
+  }
+}

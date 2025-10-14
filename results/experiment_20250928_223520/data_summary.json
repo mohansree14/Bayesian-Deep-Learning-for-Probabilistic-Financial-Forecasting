@@ -1,0 +1,11 @@
+{
+  "ticker": "GOOGL",
+  "train_samples": 617,
+  "valid_samples": 82,
+  "input_dim": 21,
+  "sequence_length": 64,
+  "target_shape": [
+    617,
+    1
+  ]
+}

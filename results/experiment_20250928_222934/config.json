@@ -1,0 +1,35 @@
+{
+  "seed": 42,
+  "data": {
+    "tickers": [
+      "AAPL"
+    ],
+    "interval": "1d",
+    "window": 64,
+    "horizon": 1,
+    "target_col": "close",
+    "feature_set": "default",
+    "data_dir": "data/processed",
+    "train_split": 0.7,
+    "valid_split": 0.15,
+    "test_split": 0.15
+  },
+  "training": {
+    "batch_size": 64,
+    "lr": 0.001,
+    "epochs": 5,
+    "grad_clip": 1.0,
+    "ckpt_dir": "experiments/checkpoints"
+  },
+  "model": {
+    "type": "mc_dropout_lstm",
+    "input_dim": null,
+    "hidden_size": 128,
+    "num_layers": 2,
+    "dropout": 0.1
+  },
+  "mlflow": {
+    "tracking_uri": "./mlruns",
+    "experiment_name": "mc_dropout_lstm"
+  }
+}

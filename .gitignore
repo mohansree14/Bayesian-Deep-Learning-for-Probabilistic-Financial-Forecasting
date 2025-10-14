@@ -1,0 +1,16 @@
+__pycache__/
+.pytest_cache/
+.venv/
+mlruns/
+data/raw/
+data/interim/
+data/processed/
+*.parquet
+*.csv
+*.npy
+*.ckpt
+*.pt
+*.log
+.DS_Store
+*.ipynb_checkpoints*
+
