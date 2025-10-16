@@ -13,4 +13,5 @@ seaborn>=0.13
 tqdm>=4.66
 pyyaml>=6.0
 pytest>=8.0
+plotly>=5.20
 
