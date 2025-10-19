@@ -73,36 +73,65 @@ except ImportError as e:
     st.stop()
 
 
+def generate_synthetic_data(ticker: str, n_samples: int = 500, seq_len: int = 30, n_features: int = 20):
+    """Generate synthetic financial data for demo purposes."""
+    np.random.seed(hash(ticker) % 2**32)  # Consistent seed per ticker
+    
+    # Generate synthetic sequences
+    X_test = np.random.randn(n_samples, seq_len, n_features).astype(np.float32)
+    
+    # Generate synthetic target values with some trend
+    base_price = 100 + hash(ticker) % 200  # Different base price per ticker
+    y_test = base_price + np.cumsum(np.random.randn(n_samples) * 2)
+    
+    # Create synthetic metadata
+    meta = {
+        "feature_cols": [f"feature_{i}" for i in range(n_features)],
+        "window": seq_len,
+        "horizon": 1,
+        "step": 1,
+        "target_col": "adj_close",
+        "interval": "1d",
+        "data_source": "synthetic_demo"
+    }
+    
+    return meta, X_test, y_test
+
+
 def load_meta(data_dir: Path, ticker: str):
     meta_path = data_dir / ticker / "meta.json"
     if not meta_path.exists():
-        raise FileNotFoundError(f"Meta file not found: {meta_path}")
+        st.info(f"📊 Generating synthetic metadata for {ticker} (Demo Mode)")
+        meta, _, _ = generate_synthetic_data(ticker)
+        return meta
     try:
         with open(meta_path, "r") as f:
             return json.load(f)
     except Exception as e:
-        raise Exception(f"Error loading meta file {meta_path}: {e}")
+        st.warning(f"Error loading meta file, using synthetic data: {e}")
+        meta, _, _ = generate_synthetic_data(ticker)
+        return meta
 
 
 def load_arrays(data_dir: Path, ticker: str):
     tdir = data_dir / ticker
-    if not tdir.exists():
-        raise FileNotFoundError(f"Ticker directory not found: {tdir}")
-    
     X_test_path = tdir / "X_test.npy"
     y_test_path = tdir / "y_test.npy"
     
-    if not X_test_path.exists():
-        raise FileNotFoundError(f"X_test.npy not found: {X_test_path}")
-    if not y_test_path.exists():
-        raise FileNotFoundError(f"y_test.npy not found: {y_test_path}")
+    # Check if real data exists
+    if not tdir.exists() or not X_test_path.exists() or not y_test_path.exists():
+        st.info(f"📊 Generating synthetic data for {ticker} (Demo Mode)")
+        _, X_test, y_test = generate_synthetic_data(ticker)
+        return X_test, y_test
     
     try:
         X_test = np.load(X_test_path)
         y_test = np.load(y_test_path)
         return X_test, y_test
     except Exception as e:
-        raise Exception(f"Error loading arrays for {ticker}: {e}")
+        st.warning(f"Error loading arrays, using synthetic data: {e}")
+        _, X_test, y_test = generate_synthetic_data(ticker)
+        return X_test, y_test
 
 
 def predict_point(model_type: str, ckpt_dir: Path, ticker: str, X: np.ndarray):
@@ -152,8 +181,9 @@ def predict_point(model_type: str, ckpt_dir: Path, ticker: str, X: np.ndarray):
 def get_available_tickers(data_dir: Path):
     """Get list of available tickers from data directory."""
     if not data_dir.exists():
-        st.warning(f"⚠️ Data directory not found: {data_dir}")
-        return ["AAPL"]  # Default fallback
+        st.info(f"📁 Data directory not found: {data_dir}")
+        st.info("🚀 **Running in Demo Mode** - Using synthetic data for demonstration")
+        return ["AAPL", "MSFT", "GOOGL", "TSLA", "NVDA", "AMZN", "META", "NFLX"]  # Demo tickers
     
     tickers = []
     try:
@@ -161,12 +191,14 @@ def get_available_tickers(data_dir: Path):
             if item.is_dir() and (item / "meta.json").exists():
                 tickers.append(item.name)
     except Exception as e:
-        st.error(f"Error reading data directory: {e}")
-        return ["AAPL"]
+        st.warning(f"Error reading data directory: {e}")
+        st.info("🚀 **Switching to Demo Mode** - Using synthetic data")
+        return ["AAPL", "MSFT", "GOOGL", "TSLA", "NVDA", "AMZN", "META", "NFLX"]
     
     if not tickers:
-        st.warning(f"No valid ticker data found in {data_dir}")
-        return ["AAPL"]
+        st.info(f"No processed data found in {data_dir}")
+        st.info("🚀 **Running in Demo Mode** - Using synthetic data for demonstration")
+        return ["AAPL", "MSFT", "GOOGL", "TSLA", "NVDA", "AMZN", "META", "NFLX"]
     
     return sorted(tickers)
 
@@ -189,6 +221,30 @@ def get_available_models(ckpt_dir: Path):
 def main():
     st.set_page_config(page_title="Bayesian Time Series Forecasting", layout="wide")
     st.title("🎯 Uncertainty-Aware Stock Price Forecasting")
+    
+    # Check if we're in demo mode
+    project_root = Path(__file__).parent.parent
+    data_dir = project_root / "data" / "processed"
+    is_demo_mode = not data_dir.exists() or not any(data_dir.iterdir()) if data_dir.exists() else True
+    
+    if is_demo_mode:
+        st.info("""
+        🚀 **Demo Mode Active** - This app is running with synthetic data for demonstration purposes. 
+        All predictions and visualizations are generated using synthetic financial data that mimics real stock patterns.
+        """)
+        
+        # Add option to generate real data (for cloud deployment)
+        with st.expander("📊 Generate Real Financial Data (Optional)"):
+            st.markdown("""
+            **Note:** In demo mode, the app uses synthetic data. If you want to fetch real financial data:
+            
+            1. **For local development:** Run the data generation scripts as shown in the README
+            2. **For Streamlit Cloud:** Due to file system limitations, real-time data fetching is not available
+            3. **Current demo:** Provides realistic synthetic predictions for all major tech stocks
+            """)
+            
+            if st.button("🔄 Refresh Demo Data"):
+                st.rerun()
     
     # Project overview
     st.markdown("""
@@ -249,14 +305,17 @@ def main():
     st.sidebar.markdown(f"📊 Tickers: {', '.join(available_tickers)}")
     st.sidebar.markdown(f"🤖 Models: {', '.join(available_models)}")
     
-    # Debug information
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("**🔍 Debug Info:**")
-    st.sidebar.markdown(f"**Working Dir:** {os.getcwd()}")
-    st.sidebar.markdown(f"**Project Root:** {project_root}")
-    st.sidebar.markdown(f"**Data Dir Exists:** {data_dir.exists()}")
-    if data_dir.exists():
-        st.sidebar.markdown(f"**Data Dir Contents:** {[d.name for d in data_dir.iterdir() if d.is_dir()]}")
+    # Debug information (collapsible)
+    with st.sidebar.expander("🔍 Debug Info"):
+        st.markdown(f"**Mode:** {'Demo (Synthetic Data)' if is_demo_mode else 'Real Data'}")
+        st.markdown(f"**Working Dir:** {os.getcwd()}")
+        st.markdown(f"**Project Root:** {project_root}")
+        st.markdown(f"**Data Dir:** {data_dir}")
+        st.markdown(f"**Data Dir Exists:** {data_dir.exists()}")
+        if data_dir.exists():
+            contents = [d.name for d in data_dir.iterdir() if d.is_dir()] if data_dir.exists() else []
+            st.markdown(f"**Data Dirs:** {contents}")
+        st.markdown(f"**Python Path:** {sys.path[:3]}...")  # Show first 3 paths
     
     try:
         # Load data and make predictions
