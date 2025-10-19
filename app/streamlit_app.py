@@ -75,39 +75,88 @@ except ImportError as e:
 
 def generate_synthetic_data(ticker: str, n_samples: int = 500, seq_len: int = 30, n_features: int = 20):
     """Generate realistic synthetic financial data for demo purposes."""
-    np.random.seed(hash(ticker) % 2**32)  # Consistent seed per ticker
+    # Use ticker-specific seed for consistency
+    seed = hash(ticker) % 2**32
+    np.random.seed(seed)
     
-    # Generate synthetic sequences
-    X_test = np.random.randn(n_samples, seq_len, n_features).astype(np.float32)
+    # Ticker-specific base prices (realistic for major stocks)
+    ticker_prices = {
+        'AAPL': 175, 'MSFT': 340, 'GOOGL': 140, 'TSLA': 250,
+        'NVDA': 450, 'AMZN': 145, 'META': 320, 'NFLX': 400
+    }
+    base_price = ticker_prices.get(ticker, 150)
     
-    # Generate realistic synthetic stock prices with volatility and trends
-    base_price = 50 + (hash(ticker) % 300)  # Base price between 50-350
+    # Generate realistic stock price time series
+    # Start with random walk with drift
+    daily_returns = np.random.normal(0.0008, 0.022, n_samples)  # ~20% annual volatility
     
-    # Create realistic stock price movements
-    returns = np.random.normal(0.001, 0.02, n_samples)  # Daily returns with drift
+    # Add trend component
+    trend_direction = np.random.choice([-1, 0, 1], p=[0.25, 0.5, 0.25])
+    trend = np.linspace(0, trend_direction * 0.25, n_samples)  # Up to 25% trend
     
-    # Add some volatility clustering and trends
-    volatility = np.abs(np.random.normal(0.02, 0.005, n_samples))
-    for i in range(1, n_samples):
-        volatility[i] = 0.7 * volatility[i-1] + 0.3 * volatility[i]  # GARCH-like volatility
-        returns[i] = returns[i] * volatility[i]
+    # Add cyclical patterns (market cycles)
+    long_cycle = 0.03 * np.sin(2 * np.pi * np.arange(n_samples) / 120)  # ~6 month cycle
+    short_cycle = 0.015 * np.sin(2 * np.pi * np.arange(n_samples) / 20)  # Monthly cycle
     
-    # Generate price path using cumulative returns
-    price_path = base_price * np.exp(np.cumsum(returns))
+    # Add occasional volatility spikes (market events)
+    volatility_spikes = np.zeros(n_samples)
+    spike_times = np.random.choice(n_samples, size=max(1, n_samples//100), replace=False)
+    volatility_spikes[spike_times] = np.random.normal(0, 0.08, len(spike_times))
     
-    # Add some cyclical patterns
-    cycle = 5 * np.sin(np.linspace(0, 4*np.pi, n_samples)) + 3 * np.sin(np.linspace(0, 12*np.pi, n_samples))
-    y_test = price_path + cycle
+    # Combine all price movements
+    total_returns = daily_returns + trend + long_cycle + short_cycle + volatility_spikes
     
-    # Create synthetic metadata
+    # Generate price series using geometric brownian motion
+    prices = base_price * np.exp(np.cumsum(total_returns))
+    
+    # Add small amount of noise and ensure positive
+    y_test = np.maximum(prices + np.random.normal(0, 0.1, n_samples), 1.0)
+    
+    # Generate correlated feature sequences
+    X_test = []
+    for i in range(n_samples):
+        features = np.zeros((seq_len, n_features))
+        
+        # Price-based features (moving averages, momentum)
+        if i >= seq_len:
+            recent_prices = y_test[i-seq_len:i]
+            features[:, 0] = recent_prices / recent_prices[0] - 1  # Normalized price change
+            features[:, 1] = np.gradient(recent_prices)  # Momentum
+            features[:, 2] = np.array([np.std(recent_prices[:j+1]) for j in range(seq_len)])  # Rolling volatility
+            
+            # Moving averages
+            for j in range(seq_len):
+                if j >= 5:
+                    features[j, 3] = np.mean(recent_prices[j-5:j+1])  # 5-day MA
+                if j >= 10:
+                    features[j, 4] = np.mean(recent_prices[j-10:j+1])  # 10-day MA
+        
+        # Technical indicator-like features
+        features[:, 5:8] = np.random.randn(seq_len, 3) * 0.1  # RSI-like
+        features[:, 8:11] = np.random.randn(seq_len, 3) * 0.05 + total_returns[i]  # MACD-like
+        
+        # Volume and other market features
+        features[:, 11:] = np.random.randn(seq_len, n_features-11) * 0.2
+        
+        X_test.append(features)
+    
+    X_test = np.array(X_test, dtype=np.float32)
+    
+    # Create realistic metadata
     meta = {
-        "feature_cols": [f"feature_{i}" for i in range(n_features)],
+        "feature_cols": [
+            "price_norm", "momentum", "volatility", "sma_5", "sma_10", 
+            "rsi_14", "rsi_21", "rsi_28", "macd", "macd_signal", "macd_hist"
+        ] + [f"feature_{i}" for i in range(11, n_features)],
         "window": seq_len,
         "horizon": 1,
         "step": 1,
         "target_col": "adj_close",
         "interval": "1d",
-        "data_source": "synthetic_demo"
+        "data_source": "synthetic_demo",
+        "ticker": ticker,
+        "base_price": float(base_price),
+        "price_range": [float(y_test.min()), float(y_test.max())]
     }
     
     return meta, X_test, y_test
@@ -151,34 +200,72 @@ def predict_point(model_type: str, ckpt_dir: Path, ticker: str, X: np.ndarray):
     
     # Check if trained model exists
     if not model_path.exists():
-        # Generate realistic synthetic predictions for demo (silently)
-        np.random.seed(hash(ticker + model_type) % 2**32)  # Different seed per ticker/model combo
+        # Generate realistic synthetic predictions for demo
+        ticker_seed = hash(ticker + model_type) % 2**32
+        np.random.seed(ticker_seed)
         n_samples = len(X)
         
-        # Get the actual y values to base predictions on
-        y_actual = X[:, -1, 0] if X.shape[2] > 0 else np.random.randn(n_samples)
+        # Ticker-specific realistic configurations
+        ticker_configs = {
+            'AAPL': {'base': 175, 'volatility': 0.018, 'trend': 0.0003},
+            'MSFT': {'base': 340, 'volatility': 0.016, 'trend': 0.0004},
+            'GOOGL': {'base': 140, 'volatility': 0.020, 'trend': 0.0002},
+            'TSLA': {'base': 250, 'volatility': 0.035, 'trend': -0.0001},
+            'NVDA': {'base': 450, 'volatility': 0.030, 'trend': 0.0005},
+            'AMZN': {'base': 145, 'volatility': 0.019, 'trend': 0.0002},
+            'META': {'base': 320, 'volatility': 0.025, 'trend': 0.0001},
+            'NFLX': {'base': 400, 'volatility': 0.028, 'trend': -0.0002}
+        }
         
-        # Generate realistic predictions that somewhat follow the actual pattern
-        trend_factor = np.random.uniform(0.8, 1.2)  # Random trend strength
-        noise_factor = np.random.uniform(0.01, 0.05)  # Random noise level
+        config = ticker_configs.get(ticker, {'base': 200, 'volatility': 0.020, 'trend': 0.0002})
+        base_price = config['base']
+        volatility = config['volatility']
+        trend_strength = config['trend']
         
-        # Create predictions with some correlation to actual values
-        mu = y_actual * trend_factor + np.random.normal(0, noise_factor * np.std(y_actual), n_samples)
+        # Generate realistic stock-like prediction pattern
+        daily_returns = np.random.normal(trend_strength, volatility, n_samples)
         
-        # Add model-specific characteristics
+        # Add market events and cycles
+        business_cycle = 0.015 * np.sin(2 * np.pi * np.arange(n_samples) / 63)  # Quarterly
+        seasonal = 0.008 * np.sin(2 * np.pi * np.arange(n_samples) / 252)  # Annual
+        
+        # Occasional market shocks
+        shock_prob = 0.02  # 2% chance per day
+        shocks = np.random.choice([0, 1], size=n_samples, p=[1-shock_prob, shock_prob])
+        shock_magnitude = shocks * np.random.normal(0, volatility * 3, n_samples)
+        
+        # Combine all effects
+        total_returns = daily_returns + business_cycle + seasonal + shock_magnitude
+        
+        # Generate price evolution using geometric brownian motion
+        mu = base_price * np.exp(np.cumsum(total_returns))
+        
+        # Add prediction error (models aren't perfect)
+        prediction_error = np.random.normal(0, volatility * 0.3, n_samples)
+        mu = mu * (1 + prediction_error)
+        
+        # Generate model-specific uncertainty
         if model_type == "mc_dropout_lstm":
-            # MC Dropout should have higher uncertainty
-            base_uncertainty = np.std(y_actual) * 0.15
-            sigma = np.abs(np.random.normal(base_uncertainty, base_uncertainty * 0.3, n_samples))
+            # MC Dropout has higher, more variable uncertainty
+            base_uncertainty = volatility * 1.2
+            uncertainty_variation = np.random.normal(0, volatility * 0.5, n_samples)
+            sigma = mu * (base_uncertainty + np.abs(uncertainty_variation))
         else:
-            # Regular LSTM has lower uncertainty
-            base_uncertainty = np.std(y_actual) * 0.08
-            sigma = np.abs(np.random.normal(base_uncertainty, base_uncertainty * 0.2, n_samples))
+            # Regular LSTM has more consistent uncertainty
+            base_uncertainty = volatility * 0.8
+            uncertainty_variation = np.random.normal(0, volatility * 0.2, n_samples)
+            sigma = mu * (base_uncertainty + np.abs(uncertainty_variation))
         
-        # Ensure predictions have some volatility clustering
+        # Add volatility clustering (realistic financial behavior)
         for i in range(1, n_samples):
-            mu[i] = 0.9 * mu[i-1] + 0.1 * mu[i]  # Smooth transitions
-            sigma[i] = 0.8 * sigma[i-1] + 0.2 * sigma[i]  # Volatility clustering
+            volatility_persistence = 0.85
+            mu[i] = mu[i] + volatility_persistence * (mu[i-1] - mu[i]) * 0.1
+            sigma[i] = sigma[i] + volatility_persistence * (sigma[i-1] - sigma[i]) * 0.1
+        
+        # Ensure positive values and reasonable ranges
+        mu = np.maximum(mu, base_price * 0.1)  # No less than 10% of base price
+        sigma = np.maximum(sigma, mu * 0.005)  # At least 0.5% uncertainty
+        sigma = np.minimum(sigma, mu * 0.25)   # Max 25% uncertainty
         
         return mu.reshape(-1, 1), sigma.reshape(-1, 1)
     
