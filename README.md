@@ -134,7 +134,8 @@ or
 .\run_streamlit.ps1  # PowerShell script
 ```
 **Option 3: Access the Live Streamlit App**
-Visit our hosted Streamlit app: [https://bayesian-financial-forecasting.streamlit.app/](https://bayesian-financial-forecasting.streamlit.app/)
+Visit our hosted Streamlit app:
+[https://bayesian-financial-forecasting.streamlit.app/](https://bayesian-financial-forecasting.streamlit.app/)
 
 ## 📊 Usage Examples
 
