@@ -1,0 +1,104 @@
+.editorconfig
+.gitattributes
+.gitignore
+AUTHORS.md
+CHANGELOG.md
+CODE_OF_CONDUCT.md
+CONTRIBUTING.md
+Dockerfile
+LICENSE
+MANIFEST.in
+Makefile
+ORGANIZATION.md
+PROJECT_STRUCTURE.md
+QUICKSTART.md
+README.md
+SECURITY.md
+WORKSPACE_SUMMARY.md
+backtest.py
+evaluate.py
+hparam_search.py
+pyproject.toml
+requirements.txt
+run_project.py
+run_streamlit.bat
+run_streamlit.ps1
+setup.py
+sitecustomize.py
+train.py
+train_all_tickers.py
+train_bnn.py
+.devcontainer/devcontainer.json
+api/predict_service.py
+app/streamlit_app.py
+aws/README.md
+configs/app.yaml
+configs/bnn_vi.yaml
+configs/lstm_baseline.yaml
+configs/mc_dropout.yaml
+configs/mc_dropout_lstm.yaml
+configs/transformer_baseline.yaml
+experiments/README.md
+financial_ts_forecasting.egg-info/PKG-INFO
+financial_ts_forecasting.egg-info/SOURCES.txt
+financial_ts_forecasting.egg-info/dependency_links.txt
+financial_ts_forecasting.egg-info/entry_points.txt
+financial_ts_forecasting.egg-info/requires.txt
+financial_ts_forecasting.egg-info/top_level.txt
+reports/Bayesian Deep Learning for Probabilistic Financial Forecasting_ A Comparative Analysis of Uncertainty Quantification and Its Impact on Trading Strategy Performance.pdf
+reports/HPO_SEARCH_SPACE.md
+reports/figures/FIGURE_10_README.md
+reports/figures/FIGURE_9_README.md
+reports/figures/HPO_TABLE_README.md
+reports/figures/figure_10_cumulative_returns.pdf
+reports/figures/figure_10_cumulative_returns.png
+reports/figures/figure_6_aapl_price_2015_2024.pdf
+reports/figures/figure_6_aapl_price_2015_2024.png
+reports/figures/figure_7_correlation_heatmap.pdf
+reports/figures/figure_7_correlation_heatmap.png
+reports/figures/figure_8_training_validation_loss.pdf
+reports/figures/figure_8_training_validation_loss.png
+reports/figures/figure_8b_model_comparison.pdf
+reports/figures/figure_8b_model_comparison.png
+reports/figures/figure_9_uncertainty_bands.pdf
+reports/figures/figure_9_uncertainty_bands.png
+reports/figures/hpo_search_space_table.pdf
+reports/figures/hpo_search_space_table.png
+reports/figures/technical_indicators_table.pdf
+reports/figures/technical_indicators_table.png
+reports/report md files/FIGURES_DOCUMENTATION.md
+reports/report md files/HPO_QUICK_REFERENCE.md
+reports/report md files/HPO_SEARCH_SPACE.md
+reports/report md files/PROJECT_ANALYSIS_REPORT.md
+reports/report md files/QUICK_REFERENCE.md
+reports/report md files/README.md
+reports/report md files/final_report.md
+reports/report md files/intern_plan.md
+reports/report md files/slides.md
+reports/tables/HPO_SEARCH_SPACE_TABLE.md
+reports/tables/HPO_TABLE_SINGLE.md
+reports/tables/README.md
+reports/tables/TECHNICAL_INDICATORS_TABLE.md
+scripts/fetch_data.py
+scripts/make_dataset.py
+src/__init__.py
+src/data/indicators.py
+src/data/preprocess.py
+src/evaluation/backtesting.py
+src/evaluation/metrics.py
+src/models/bnn_vi_pyro.py
+src/models/lstm.py
+src/models/mc_dropout_lstm.py
+src/models/transformer.py
+src/training/train_loop.py
+src/utils/config.py
+src/utils/logging_mlflow.py
+src/utils/results_logger.py
+src/utils/seeding.py
+src/utils/visualization.py
+tests/test_metrics.py
+tests/test_models.py
+tests/test_preprocess.py
+utils/generate_figures.py
+utils/generate_hpo_table.py
+utils/generate_indicators_table.py

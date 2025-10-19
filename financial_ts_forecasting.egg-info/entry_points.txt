@@ -1,0 +1,5 @@
+[console_scripts]
+financial-ts-app = run_project:main
+financial-ts-backtest = backtest:main
+financial-ts-evaluate = evaluate:main
+financial-ts-train = train:main

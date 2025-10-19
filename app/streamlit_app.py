@@ -1,5 +1,7 @@
 from __future__ import annotations
 import json
+import sys
+import os
 from pathlib import Path
 import argparse
 import numpy as np
@@ -8,8 +10,67 @@ import torch
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from src.models.lstm import LSTMRegressor
-from src.models.mc_dropout_lstm import MCDropoutLSTM
+# Add the project root to Python path - works for both local and Streamlit Cloud
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
+# Alternative path setup for Streamlit Cloud deployment
+if str(project_root) not in sys.path:
+    sys.path.append(str(project_root))
+
+# Try to add the workspace mount path (for Streamlit Cloud)
+workspace_path = "/mount/src/bayesian-deep-learning-for-probabilistic-financial-forecasting"
+if os.path.exists(workspace_path) and workspace_path not in sys.path:
+    sys.path.insert(0, workspace_path)
+
+try:
+    from src.models.lstm import LSTMRegressor
+    from src.models.mc_dropout_lstm import MCDropoutLSTM
+except ImportError as e:
+    st.error(f"❌ Import Error: {e}")
+    st.error("This usually happens when the project structure is not properly set up for deployment.")
+    
+    st.info("🔧 **Debug Information:**")
+    st.write("**Python Path:**", sys.path)
+    st.write("**Current Directory:**", os.getcwd())
+    st.write("**Project Root:**", str(project_root))
+    st.write("**Project Root Exists:**", project_root.exists())
+    
+    if project_root.exists():
+        st.write("**Files in Project Root:**", [f.name for f in project_root.iterdir()])
+        src_path = project_root / "src"
+        if src_path.exists():
+            st.write("**Files in src/:**", [f.name for f in src_path.iterdir()])
+            models_path = src_path / "models"
+            if models_path.exists():
+                st.write("**Files in src/models/:**", [f.name for f in models_path.iterdir()])
+    
+    st.markdown("""
+    ### 🚨 **Deployment Setup Required**
+    
+    To fix this issue for Streamlit Cloud deployment:
+    
+    1. **Ensure all `__init__.py` files exist** in the `src/` and `src/models/` directories
+    2. **Check that the repository structure is correct** on Streamlit Cloud
+    3. **Verify that `requirements.txt` contains all dependencies**
+    4. **Make sure the app entry point is `app/streamlit_app.py`**
+    
+    ### 📁 **Expected Structure:**
+    ```
+    project-root/
+    ├── src/
+    │   ├── __init__.py
+    │   └── models/
+    │       ├── __init__.py
+    │       ├── lstm.py
+    │       └── mc_dropout_lstm.py
+    ├── app/
+    │   └── streamlit_app.py
+    ├── requirements.txt
+    └── data/
+    ```
+    """)
+    st.stop()
 
 
 def load_meta(data_dir: Path, ticker: str):
@@ -25,6 +86,23 @@ def load_arrays(data_dir: Path, ticker: str):
 
 
 def predict_point(model_type: str, ckpt_dir: Path, ticker: str, X: np.ndarray):
+    """Make predictions with trained model or generate demo predictions if model not available."""
+    model_path = ckpt_dir / model_type / f"{ticker}.pt"
+    
+    # Check if trained model exists
+    if not model_path.exists():
+        st.warning(f"⚠️ No trained model found at {model_path}. Generating demo predictions...")
+        # Generate synthetic predictions for demo
+        np.random.seed(42)  # For reproducible demo
+        n_samples = len(X)
+        # Create somewhat realistic predictions with trend and noise
+        base_trend = np.linspace(0.95, 1.05, n_samples)
+        noise = np.random.normal(0, 0.02, n_samples)
+        mu = base_trend + noise
+        sigma = np.abs(np.random.normal(0.05, 0.02, n_samples))  # Positive uncertainty
+        return mu.reshape(-1, 1), sigma.reshape(-1, 1)
+    
+    # Load and use trained model
     input_dim = X.shape[-1]
     if model_type == "lstm":
         model = LSTMRegressor(input_dim)
@@ -33,17 +111,22 @@ def predict_point(model_type: str, ckpt_dir: Path, ticker: str, X: np.ndarray):
     else:
         st.error("Unsupported model for app")
         st.stop()
-    state = torch.load(ckpt_dir / model_type / f"{ticker}.pt", map_location="cpu")
-    model.load_state_dict(state["model_state_dict"]) if "model_state_dict" in state else model.load_state_dict(state)
-    model.eval()
-    with torch.no_grad():
-        xb = torch.from_numpy(X).float()
-        if model_type == "mc_dropout_lstm":
-            preds = model.mc_predict(xb, mc_samples=50).cpu().numpy()
-            return preds.mean(0), preds.std(0)
-        else:
-            pred = model(xb).cpu().numpy()
-            return pred, np.full_like(pred, fill_value=np.std(pred))
+    
+    try:
+        state = torch.load(model_path, map_location="cpu")
+        model.load_state_dict(state["model_state_dict"]) if "model_state_dict" in state else model.load_state_dict(state)
+        model.eval()
+        with torch.no_grad():
+            xb = torch.from_numpy(X).float()
+            if model_type == "mc_dropout_lstm":
+                preds = model.mc_predict(xb, mc_samples=50).cpu().numpy()
+                return preds.mean(0), preds.std(0)
+            else:
+                pred = model(xb).cpu().numpy()
+                return pred, np.full_like(pred, fill_value=np.std(pred))
+    except Exception as e:
+        st.error(f"Error loading model: {e}")
+        st.stop()
 
 
 def get_available_tickers(data_dir: Path):
@@ -61,14 +144,18 @@ def get_available_tickers(data_dir: Path):
 def get_available_models(ckpt_dir: Path):
     """Get list of available models from checkpoint directory."""
     if not ckpt_dir.exists():
-        return ["lstm"]  # Default fallback
+        return ["lstm (demo)", "mc_dropout_lstm (demo)"]  # Default fallback with demo indication
     
     models = []
     for item in ckpt_dir.iterdir():
         if item.is_dir():
             models.append(item.name)
     
-    return models if models else ["lstm"]
+    # If no trained models found, provide demo options
+    if not models:
+        return ["lstm (demo)", "mc_dropout_lstm (demo)"]
+    
+    return models
 
 def main():
     st.set_page_config(page_title="Bayesian Time Series Forecasting", layout="wide")
@@ -132,7 +219,9 @@ def main():
         # Load data and make predictions
         meta = load_meta(data_dir, ticker)
         X_test, y_test = load_arrays(data_dir, ticker)
-        mu, sigma = predict_point(model_type, ckpt_dir, ticker, X_test)
+        # Clean model type (remove demo suffix if present)
+        clean_model_type = model_type.replace(" (demo)", "")
+        mu, sigma = predict_point(clean_model_type, ckpt_dir, ticker, X_test)
         y_true = y_test[:, 0] if y_test.ndim == 2 else y_test
         
         # Apply time period filtering
@@ -159,8 +248,11 @@ def main():
         
         # Filter data based on selected time period
         y_true_filtered = y_true[start_idx:end_idx]
-        mu_filtered = mu[start_idx:end_idx]
-        sigma_filtered = sigma[start_idx:end_idx]
+        # Ensure mu and sigma are 1-dimensional for plotting
+        mu_flat = mu.flatten() if mu.ndim > 1 else mu
+        sigma_flat = sigma.flatten() if sigma.ndim > 1 else sigma
+        mu_filtered = mu_flat[start_idx:end_idx]
+        sigma_filtered = sigma_flat[start_idx:end_idx]
         
         # Create filtered indices for plotting
         filtered_indices = list(range(start_idx, end_idx))
@@ -206,10 +298,10 @@ def main():
         
         # Create DataFrame with filtered data
         df = pd.DataFrame({
-            "y_true": y_true_filtered, 
-            "mu": mu_filtered, 
-            "lower": mu_filtered - conf_z * sigma_filtered, 
-            "upper": mu_filtered + conf_z * sigma_filtered,
+            "y_true": y_true_filtered.flatten() if hasattr(y_true_filtered, 'flatten') else y_true_filtered, 
+            "mu": mu_filtered.flatten() if hasattr(mu_filtered, 'flatten') else mu_filtered, 
+            "lower": (mu_filtered - conf_z * sigma_filtered).flatten() if hasattr((mu_filtered - conf_z * sigma_filtered), 'flatten') else (mu_filtered - conf_z * sigma_filtered), 
+            "upper": (mu_filtered + conf_z * sigma_filtered).flatten() if hasattr((mu_filtered + conf_z * sigma_filtered), 'flatten') else (mu_filtered + conf_z * sigma_filtered),
             "index": filtered_indices
         })
         
@@ -239,10 +331,15 @@ def main():
             st.markdown("**📊 Candlestick-Style Visualization** (simulated OHLC from predictions)")
             
             # Simulate OHLC data from predictions and uncertainty
-            open_prices = mu_filtered - sigma_filtered * 0.5
-            high_prices = mu_filtered + sigma_filtered
-            low_prices = mu_filtered - sigma_filtered
-            close_prices = mu_filtered
+            # Ensure arrays are 1-dimensional
+            y_mu = mu_filtered.flatten() if hasattr(mu_filtered, 'flatten') else mu_filtered
+            y_true = y_true_filtered.flatten() if hasattr(y_true_filtered, 'flatten') else y_true_filtered
+            y_sigma = sigma_filtered.flatten() if hasattr(sigma_filtered, 'flatten') else sigma_filtered
+            
+            open_prices = y_mu - y_sigma * 0.5
+            high_prices = y_mu + y_sigma
+            low_prices = y_mu - y_sigma
+            close_prices = y_mu
             
             fig = go.Figure(data=[go.Candlestick(
                 x=filtered_indices,
@@ -258,7 +355,7 @@ def main():
             # Add actual prices as a line
             fig.add_trace(go.Scatter(
                 x=filtered_indices,
-                y=y_true_filtered,
+                y=y_true,
                 mode='lines',
                 name='Actual Price',
                 line=dict(color='blue', width=2)
@@ -278,10 +375,15 @@ def main():
             # Interactive Plotly chart with zoom and hover
             fig = go.Figure()
             
+            # Ensure all arrays are 1-dimensional for Plotly
+            y_mu = mu_filtered.flatten() if hasattr(mu_filtered, 'flatten') else mu_filtered
+            y_true = y_true_filtered.flatten() if hasattr(y_true_filtered, 'flatten') else y_true_filtered
+            y_sigma = sigma_filtered.flatten() if hasattr(sigma_filtered, 'flatten') else sigma_filtered
+            
             # Add prediction line
             fig.add_trace(go.Scatter(
                 x=filtered_indices,
-                y=mu_filtered,
+                y=y_mu,
                 mode='lines',
                 name='Prediction (μ)',
                 line=dict(color='orange', width=2)
@@ -290,7 +392,7 @@ def main():
             # Add actual price line
             fig.add_trace(go.Scatter(
                 x=filtered_indices,
-                y=y_true_filtered,
+                y=y_true,
                 mode='lines',
                 name='Actual Price',
                 line=dict(color='blue', width=2)
@@ -299,7 +401,7 @@ def main():
             # Add confidence bands
             fig.add_trace(go.Scatter(
                 x=filtered_indices,
-                y=mu_filtered + conf_z * sigma_filtered,
+                y=y_mu + conf_z * y_sigma,
                 mode='lines',
                 name='Upper Bound',
                 line=dict(color='rgba(255,165,0,0.3)', width=1, dash='dash'),
@@ -308,7 +410,7 @@ def main():
             
             fig.add_trace(go.Scatter(
                 x=filtered_indices,
-                y=mu_filtered - conf_z * sigma_filtered,
+                y=y_mu - conf_z * y_sigma,
                 mode='lines',
                 name='Lower Bound',
                 line=dict(color='rgba(255,165,0,0.3)', width=1, dash='dash'),
