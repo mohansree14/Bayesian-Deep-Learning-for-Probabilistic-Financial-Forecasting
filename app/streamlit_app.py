@@ -74,15 +74,35 @@ except ImportError as e:
 
 
 def load_meta(data_dir: Path, ticker: str):
-    with open(data_dir / ticker / "meta.json", "r") as f:
-        return json.load(f)
+    meta_path = data_dir / ticker / "meta.json"
+    if not meta_path.exists():
+        raise FileNotFoundError(f"Meta file not found: {meta_path}")
+    try:
+        with open(meta_path, "r") as f:
+            return json.load(f)
+    except Exception as e:
+        raise Exception(f"Error loading meta file {meta_path}: {e}")
 
 
 def load_arrays(data_dir: Path, ticker: str):
     tdir = data_dir / ticker
-    X_test = np.load(tdir / "X_test.npy")
-    y_test = np.load(tdir / "y_test.npy")
-    return X_test, y_test
+    if not tdir.exists():
+        raise FileNotFoundError(f"Ticker directory not found: {tdir}")
+    
+    X_test_path = tdir / "X_test.npy"
+    y_test_path = tdir / "y_test.npy"
+    
+    if not X_test_path.exists():
+        raise FileNotFoundError(f"X_test.npy not found: {X_test_path}")
+    if not y_test_path.exists():
+        raise FileNotFoundError(f"y_test.npy not found: {y_test_path}")
+    
+    try:
+        X_test = np.load(X_test_path)
+        y_test = np.load(y_test_path)
+        return X_test, y_test
+    except Exception as e:
+        raise Exception(f"Error loading arrays for {ticker}: {e}")
 
 
 def predict_point(model_type: str, ckpt_dir: Path, ticker: str, X: np.ndarray):
@@ -132,14 +152,23 @@ def predict_point(model_type: str, ckpt_dir: Path, ticker: str, X: np.ndarray):
 def get_available_tickers(data_dir: Path):
     """Get list of available tickers from data directory."""
     if not data_dir.exists():
+        st.warning(f"⚠️ Data directory not found: {data_dir}")
         return ["AAPL"]  # Default fallback
     
     tickers = []
-    for item in data_dir.iterdir():
-        if item.is_dir() and (item / "meta.json").exists():
-            tickers.append(item.name)
+    try:
+        for item in data_dir.iterdir():
+            if item.is_dir() and (item / "meta.json").exists():
+                tickers.append(item.name)
+    except Exception as e:
+        st.error(f"Error reading data directory: {e}")
+        return ["AAPL"]
     
-    return tickers if tickers else ["AAPL"]
+    if not tickers:
+        st.warning(f"No valid ticker data found in {data_dir}")
+        return ["AAPL"]
+    
+    return sorted(tickers)
 
 def get_available_models(ckpt_dir: Path):
     """Get list of available models from checkpoint directory."""
@@ -175,9 +204,14 @@ def main():
     Use time filters to focus on specific periods.
     """)
     
-    config_path = st.sidebar.text_input("Config path", value="configs/app.yaml")
-    ckpt_dir = Path(st.sidebar.text_input("Checkpoint dir", value="experiments/checkpoints"))
-    data_dir = Path(st.sidebar.text_input("Data dir", value="data/processed"))
+    # Use absolute paths relative to project root
+    default_config_path = project_root / "configs" / "app.yaml"
+    default_ckpt_dir = project_root / "experiments" / "checkpoints"
+    default_data_dir = project_root / "data" / "processed"
+    
+    config_path = st.sidebar.text_input("Config path", value=str(default_config_path))
+    ckpt_dir = Path(st.sidebar.text_input("Checkpoint dir", value=str(default_ckpt_dir)))
+    data_dir = Path(st.sidebar.text_input("Data dir", value=str(default_data_dir)))
     
     # Get available options
     available_tickers = get_available_tickers(data_dir)
@@ -214,6 +248,15 @@ def main():
     st.sidebar.markdown("**Available Options:**")
     st.sidebar.markdown(f"📊 Tickers: {', '.join(available_tickers)}")
     st.sidebar.markdown(f"🤖 Models: {', '.join(available_models)}")
+    
+    # Debug information
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("**🔍 Debug Info:**")
+    st.sidebar.markdown(f"**Working Dir:** {os.getcwd()}")
+    st.sidebar.markdown(f"**Project Root:** {project_root}")
+    st.sidebar.markdown(f"**Data Dir Exists:** {data_dir.exists()}")
+    if data_dir.exists():
+        st.sidebar.markdown(f"**Data Dir Contents:** {[d.name for d in data_dir.iterdir() if d.is_dir()]}")
     
     try:
         # Load data and make predictions
