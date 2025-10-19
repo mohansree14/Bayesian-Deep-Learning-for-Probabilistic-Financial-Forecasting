@@ -74,89 +74,71 @@ except ImportError as e:
 
 
 def generate_synthetic_data(ticker: str, n_samples: int = 500, seq_len: int = 30, n_features: int = 20):
-    """Generate realistic synthetic financial data for demo purposes."""
-    # Use ticker-specific seed for consistency
-    seed = hash(ticker) % 2**32
-    np.random.seed(seed)
+    """Generate synthetic financial data for demo purposes."""
+    np.random.seed(hash(ticker) % 2**32)  # Consistent seed per ticker
     
-    # Ticker-specific base prices (realistic for major stocks)
-    ticker_prices = {
-        'AAPL': 175, 'MSFT': 340, 'GOOGL': 140, 'TSLA': 250,
-        'NVDA': 450, 'AMZN': 145, 'META': 320, 'NFLX': 400
+    # Use same ticker-specific configurations as predictions
+    ticker_configs = {
+        'AAPL': {'base': 175, 'volatility': 0.018, 'trend': 0.0003},
+        'MSFT': {'base': 340, 'volatility': 0.016, 'trend': 0.0004},
+        'GOOGL': {'base': 140, 'volatility': 0.020, 'trend': 0.0002},
+        'TSLA': {'base': 250, 'volatility': 0.035, 'trend': -0.0001},
+        'NVDA': {'base': 450, 'volatility': 0.030, 'trend': 0.0005},
+        'AMZN': {'base': 145, 'volatility': 0.019, 'trend': 0.0002},
+        'META': {'base': 320, 'volatility': 0.025, 'trend': 0.0001},
+        'NFLX': {'base': 400, 'volatility': 0.028, 'trend': -0.0002}
     }
-    base_price = ticker_prices.get(ticker, 150)
     
-    # Generate realistic stock price time series
-    # Start with random walk with drift
-    daily_returns = np.random.normal(0.0008, 0.022, n_samples)  # ~20% annual volatility
+    config = ticker_configs.get(ticker, {'base': 200, 'volatility': 0.020, 'trend': 0.0002})
+    base_price = config['base']
+    volatility = config['volatility']
+    trend_strength = config['trend']
     
-    # Add trend component
-    trend_direction = np.random.choice([-1, 0, 1], p=[0.25, 0.5, 0.25])
-    trend = np.linspace(0, trend_direction * 0.25, n_samples)  # Up to 25% trend
+    # Generate realistic stock price movements
+    daily_returns = np.random.normal(trend_strength, volatility, n_samples)
     
-    # Add cyclical patterns (market cycles)
-    long_cycle = 0.03 * np.sin(2 * np.pi * np.arange(n_samples) / 120)  # ~6 month cycle
-    short_cycle = 0.015 * np.sin(2 * np.pi * np.arange(n_samples) / 20)  # Monthly cycle
+    # Add market cycles and patterns
+    business_cycle = 0.012 * np.sin(2 * np.pi * np.arange(n_samples) / 63)  # Quarterly
+    seasonal = 0.006 * np.sin(2 * np.pi * np.arange(n_samples) / 252)  # Annual
     
-    # Add occasional volatility spikes (market events)
-    volatility_spikes = np.zeros(n_samples)
-    spike_times = np.random.choice(n_samples, size=max(1, n_samples//100), replace=False)
-    volatility_spikes[spike_times] = np.random.normal(0, 0.08, len(spike_times))
+    # Add occasional market events
+    shock_prob = 0.015  # 1.5% chance per day
+    shocks = np.random.choice([0, 1], size=n_samples, p=[1-shock_prob, shock_prob])
+    shock_magnitude = shocks * np.random.normal(0, volatility * 2.5, n_samples)
     
-    # Combine all price movements
-    total_returns = daily_returns + trend + long_cycle + short_cycle + volatility_spikes
+    # Combine all effects
+    total_returns = daily_returns + business_cycle + seasonal + shock_magnitude
     
-    # Generate price series using geometric brownian motion
-    prices = base_price * np.exp(np.cumsum(total_returns))
+    # Generate actual price series
+    y_test = base_price * np.exp(np.cumsum(total_returns))
     
-    # Add small amount of noise and ensure positive
-    y_test = np.maximum(prices + np.random.normal(0, 0.1, n_samples), 1.0)
+    # Add volatility clustering
+    for i in range(1, n_samples):
+        volatility_persistence = 0.9
+        if i > 0:
+            y_test[i] = y_test[i] + volatility_persistence * (y_test[i-1] - y_test[i]) * 0.05
     
-    # Generate correlated feature sequences
-    X_test = []
-    for i in range(n_samples):
-        features = np.zeros((seq_len, n_features))
-        
-        # Price-based features (moving averages, momentum)
-        if i >= seq_len:
-            recent_prices = y_test[i-seq_len:i]
-            features[:, 0] = recent_prices / recent_prices[0] - 1  # Normalized price change
-            features[:, 1] = np.gradient(recent_prices)  # Momentum
-            features[:, 2] = np.array([np.std(recent_prices[:j+1]) for j in range(seq_len)])  # Rolling volatility
-            
-            # Moving averages
-            for j in range(seq_len):
-                if j >= 5:
-                    features[j, 3] = np.mean(recent_prices[j-5:j+1])  # 5-day MA
-                if j >= 10:
-                    features[j, 4] = np.mean(recent_prices[j-10:j+1])  # 10-day MA
-        
-        # Technical indicator-like features
-        features[:, 5:8] = np.random.randn(seq_len, 3) * 0.1  # RSI-like
-        features[:, 8:11] = np.random.randn(seq_len, 3) * 0.05 + total_returns[i]  # MACD-like
-        
-        # Volume and other market features
-        features[:, 11:] = np.random.randn(seq_len, n_features-11) * 0.2
-        
-        X_test.append(features)
+    # Ensure prices stay in reasonable range
+    y_test = np.maximum(y_test, base_price * 0.2)  # No less than 20% of base
+    y_test = np.minimum(y_test, base_price * 3.0)  # No more than 300% of base
     
-    X_test = np.array(X_test, dtype=np.float32)
+    # Generate synthetic feature sequences
+    X_test = np.random.randn(n_samples, seq_len, n_features).astype(np.float32)
     
-    # Create realistic metadata
+    # Make first feature somewhat correlated with price movements
+    price_returns = np.diff(np.log(y_test), prepend=np.log(y_test[0]))
+    for i in range(seq_len, n_samples):
+        X_test[i, :, 0] = price_returns[i-seq_len:i] * 10  # Scaled returns
+    
+    # Create synthetic metadata
     meta = {
-        "feature_cols": [
-            "price_norm", "momentum", "volatility", "sma_5", "sma_10", 
-            "rsi_14", "rsi_21", "rsi_28", "macd", "macd_signal", "macd_hist"
-        ] + [f"feature_{i}" for i in range(11, n_features)],
+        "feature_cols": [f"feature_{i}" for i in range(n_features)],
         "window": seq_len,
         "horizon": 1,
         "step": 1,
         "target_col": "adj_close",
         "interval": "1d",
-        "data_source": "synthetic_demo",
-        "ticker": ticker,
-        "base_price": float(base_price),
-        "price_range": [float(y_test.min()), float(y_test.max())]
+        "data_source": "synthetic_demo"
     }
     
     return meta, X_test, y_test
