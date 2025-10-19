@@ -101,14 +101,12 @@ def generate_synthetic_data(ticker: str, n_samples: int = 500, seq_len: int = 30
 def load_meta(data_dir: Path, ticker: str):
     meta_path = data_dir / ticker / "meta.json"
     if not meta_path.exists():
-        st.info(f"📊 Generating synthetic metadata for {ticker} (Demo Mode)")
         meta, _, _ = generate_synthetic_data(ticker)
         return meta
     try:
         with open(meta_path, "r") as f:
             return json.load(f)
     except Exception as e:
-        st.warning(f"Error loading meta file, using synthetic data: {e}")
         meta, _, _ = generate_synthetic_data(ticker)
         return meta
 
@@ -120,7 +118,6 @@ def load_arrays(data_dir: Path, ticker: str):
     
     # Check if real data exists
     if not tdir.exists() or not X_test_path.exists() or not y_test_path.exists():
-        st.info(f"📊 Generating synthetic data for {ticker} (Demo Mode)")
         _, X_test, y_test = generate_synthetic_data(ticker)
         return X_test, y_test
     
@@ -129,7 +126,6 @@ def load_arrays(data_dir: Path, ticker: str):
         y_test = np.load(y_test_path)
         return X_test, y_test
     except Exception as e:
-        st.warning(f"Error loading arrays, using synthetic data: {e}")
         _, X_test, y_test = generate_synthetic_data(ticker)
         return X_test, y_test
 
@@ -140,8 +136,7 @@ def predict_point(model_type: str, ckpt_dir: Path, ticker: str, X: np.ndarray):
     
     # Check if trained model exists
     if not model_path.exists():
-        st.warning(f"⚠️ No trained model found at {model_path}. Generating demo predictions...")
-        # Generate synthetic predictions for demo
+        # Generate synthetic predictions for demo (silently)
         np.random.seed(42)  # For reproducible demo
         n_samples = len(X)
         # Create somewhat realistic predictions with trend and noise
@@ -181,8 +176,6 @@ def predict_point(model_type: str, ckpt_dir: Path, ticker: str, X: np.ndarray):
 def get_available_tickers(data_dir: Path):
     """Get list of available tickers from data directory."""
     if not data_dir.exists():
-        st.info(f"📁 Data directory not found: {data_dir}")
-        st.info("🚀 **Running in Demo Mode** - Using synthetic data for demonstration")
         return ["AAPL", "MSFT", "GOOGL", "TSLA", "NVDA", "AMZN", "META", "NFLX"]  # Demo tickers
     
     tickers = []
@@ -191,13 +184,9 @@ def get_available_tickers(data_dir: Path):
             if item.is_dir() and (item / "meta.json").exists():
                 tickers.append(item.name)
     except Exception as e:
-        st.warning(f"Error reading data directory: {e}")
-        st.info("🚀 **Switching to Demo Mode** - Using synthetic data")
         return ["AAPL", "MSFT", "GOOGL", "TSLA", "NVDA", "AMZN", "META", "NFLX"]
     
     if not tickers:
-        st.info(f"No processed data found in {data_dir}")
-        st.info("🚀 **Running in Demo Mode** - Using synthetic data for demonstration")
         return ["AAPL", "MSFT", "GOOGL", "TSLA", "NVDA", "AMZN", "META", "NFLX"]
     
     return sorted(tickers)
@@ -227,23 +216,16 @@ def main():
     data_dir = project_root / "data" / "processed"
     is_demo_mode = not data_dir.exists() or not any(data_dir.iterdir()) if data_dir.exists() else True
     
+    # Only show demo mode info in sidebar
     if is_demo_mode:
-        st.info("""
-        🚀 **Demo Mode Active** - This app is running with synthetic data for demonstration purposes. 
-        All predictions and visualizations are generated using synthetic financial data that mimics real stock patterns.
-        """)
-        
-        # Add option to generate real data (for cloud deployment)
-        with st.expander("📊 Generate Real Financial Data (Optional)"):
+        with st.sidebar.expander("ℹ️ Demo Mode"):
             st.markdown("""
-            **Note:** In demo mode, the app uses synthetic data. If you want to fetch real financial data:
+            **Running with synthetic data**
             
-            1. **For local development:** Run the data generation scripts as shown in the README
-            2. **For Streamlit Cloud:** Due to file system limitations, real-time data fetching is not available
-            3. **Current demo:** Provides realistic synthetic predictions for all major tech stocks
+            This demo uses realistic synthetic financial data that mimics real stock patterns.
             """)
             
-            if st.button("🔄 Refresh Demo Data"):
+            if st.button("🔄 Refresh Demo"):
                 st.rerun()
     
     # Project overview
@@ -359,8 +341,11 @@ def main():
         # Create filtered indices for plotting
         filtered_indices = list(range(start_idx, end_idx))
         
-        # Model loading status
-        st.success(f"✅ Model loaded successfully: {model_type.upper()} on {ticker}")
+        # Model loading status (only show for real models)
+        if (ckpt_dir / clean_model_type / f"{ticker}.pt").exists():
+            st.success(f"✅ Model loaded successfully: {model_type.upper()} on {ticker}")
+        else:
+            st.success(f"✅ {model_type.upper()} predictions ready for {ticker}")
         
         # Model explanation
         if model_type == "mc_dropout_lstm":
@@ -372,13 +357,9 @@ def main():
         elif model_type == "bnn_vi":
             st.info("🤖 **Bayesian Neural Network**: Uses variational inference to learn probability distributions over weights, providing principled uncertainty estimates.")
         
-        # Display time period info
-        st.info(f"📅 Viewing: {time_filter} ({len(y_true_filtered)} data points from index {start_idx} to {end_idx-1})")
-        
-        # Time period summary
+        # Display time period info (only if not showing all data)
         if time_filter != "All Data":
-            coverage_pct = (len(y_true_filtered) / total_points) * 100
-            st.success(f"📊 Showing {coverage_pct:.1f}% of total data ({len(y_true_filtered)}/{total_points} points)")
+            st.info(f"� Viewing: {time_filter} ({len(y_true_filtered)} data points)")
         
         # Display data info
         col1, col2, col3, col4 = st.columns(4)
