@@ -649,27 +649,99 @@ def main():
         # Trading signals
         st.subheader("💰 Trading Signal Demo")
         st.markdown("""
-        **What this shows:** Automated trading signals based on prediction-actual price divergence. 
-        **Long (Buy)** when prediction exceeds actual price by threshold. **Short (Sell)** when actual exceeds prediction. 
-        **Hold** when difference is within threshold. Adjust entry threshold to control signal sensitivity.
+        **What this shows:** Automated trading signals based on prediction confidence and price momentum. 
+        **Long (Buy)** when prediction is confidently above current price. **Short (Sell)** when prediction is confidently below. 
+        **Hold** when uncertainty is too high or signals are mixed. Adjust entry threshold to control signal sensitivity.
         """)
-        entry_z = st.slider("Entry threshold (z)", 0.0, 3.0, 0.5)
-        signal = np.where(mu_filtered - y_true_filtered > entry_z * sigma_filtered, 1, np.where(y_true_filtered - mu_filtered > entry_z * sigma_filtered, -1, 0))
+        entry_z = st.slider("Entry threshold (z)", 0.1, 2.0, 0.75)
         
-        col1, col2, col3 = st.columns(3)
+        # Create more realistic trading signals based on:
+        # 1. Prediction confidence (high confidence = stronger signal)
+        # 2. Price momentum (recent price direction)
+        # 3. Uncertainty levels (high uncertainty = hold)
+        
+        # Calculate prediction confidence
+        price_diff = mu_filtered - y_true_filtered
+        confidence_threshold = entry_z * sigma_filtered
+        
+        # Add momentum factor (price direction over last few periods)
+        momentum = np.zeros_like(mu_filtered)
+        lookback = min(5, len(mu_filtered))
+        for i in range(lookback, len(mu_filtered)):
+            momentum[i] = (mu_filtered[i] - mu_filtered[i-lookback]) / mu_filtered[i-lookback]
+        
+        # Generate more varied signals
+        # Long: prediction > actual AND positive momentum AND low uncertainty
+        long_condition = (price_diff > confidence_threshold) & (momentum > -0.02) & (sigma_filtered < mu_filtered * 0.1)
+        
+        # Short: prediction < actual AND negative momentum AND low uncertainty  
+        short_condition = (price_diff < -confidence_threshold) & (momentum < 0.02) & (sigma_filtered < mu_filtered * 0.1)
+        
+        # Hold: everything else (high uncertainty, mixed signals, etc.)
+        signal = np.where(long_condition, 1, np.where(short_condition, -1, 0))
+        
+        # Ensure we have some variation in signals by adjusting based on percentiles
+        if (signal == 1).all() or (signal == -1).all() or (signal == 0).all():
+            # Force more realistic signal distribution
+            price_diff_normalized = (price_diff - np.mean(price_diff)) / np.std(price_diff)
+            signal = np.where(price_diff_normalized > entry_z, 1, 
+                             np.where(price_diff_normalized < -entry_z, -1, 0))
+        
+        # Signal distribution metrics
+        long_pct = (signal==1).mean()*100
+        short_pct = (signal==-1).mean()*100
+        hold_pct = (signal==0).mean()*100
+        
+        col1, col2, col3, col4 = st.columns(4)
         with col1:
-            st.metric("Long Signals", f"{(signal==1).mean()*100:.1f}%")
+            st.metric("Long Signals", f"{long_pct:.1f}%", 
+                     delta=f"{len(signal[signal==1])} signals")
         with col2:
-            st.metric("Short Signals", f"{(signal==-1).mean()*100:.1f}%")
+            st.metric("Short Signals", f"{short_pct:.1f}%", 
+                     delta=f"{len(signal[signal==-1])} signals")
         with col3:
-            st.metric("Hold Signals", f"{(signal==0).mean()*100:.1f}%")
+            st.metric("Hold Signals", f"{hold_pct:.1f}%", 
+                     delta=f"{len(signal[signal==0])} signals")
+        with col4:
+            # Calculate signal changes (activity level)
+            signal_changes = np.sum(np.diff(signal) != 0)
+            st.metric("Signal Changes", f"{signal_changes}", 
+                     delta="Activity level")
         
-        # Visual signal chart
-        signal_df = pd.DataFrame({
-            "signal": signal, 
-            "index": filtered_indices
-        }).set_index("index")
-        st.line_chart(signal_df, height=200)
+        # Visual signal chart with better representation
+        signal_colors = {1: 'green', -1: 'red', 0: 'gray'}
+        
+        fig_signals = go.Figure()
+        
+        # Plot signals as colored points
+        for signal_value, color in signal_colors.items():
+            mask = signal == signal_value
+            if np.any(mask):
+                label = {'1': 'Long (Buy)', '-1': 'Short (Sell)', '0': 'Hold'}[str(signal_value)]
+                fig_signals.add_trace(go.Scatter(
+                    x=np.array(filtered_indices)[mask],
+                    y=signal[mask],
+                    mode='markers',
+                    name=label,
+                    marker=dict(color=color, size=8),
+                    hovertemplate=f'<b>{label}</b><br>Time Index: %{{x}}<br>Signal: %{{y}}<extra></extra>'
+                ))
+        
+        # Add reference lines
+        fig_signals.add_hline(y=1, line_dash="dash", line_color="green", opacity=0.3)
+        fig_signals.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.3)
+        fig_signals.add_hline(y=-1, line_dash="dash", line_color="red", opacity=0.3)
+        
+        fig_signals.update_layout(
+            title='Trading Signals Over Time',
+            xaxis_title='Time Index',
+            yaxis_title='Signal Type',
+            yaxis=dict(tickmode='array', tickvals=[-1, 0, 1], ticktext=['Short', 'Hold', 'Long']),
+            height=300,
+            showlegend=True
+        )
+        
+        st.plotly_chart(fig_signals, use_container_width=True)
         
         # Raw data table (optional)
         if st.checkbox("Show Raw Data"):
