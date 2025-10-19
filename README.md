@@ -5,8 +5,15 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![PyTorch](https://img.shields.io/badge/PyTorch-1.9+-ee4c2c.svg)](https://pytorch.org/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.0+-FF4B4B.svg)](https://streamlit.io/)
+[![Live Demo](https://img.shields.io/badge/🚀%20Live%20Demo-Streamlit%20App-FF4B4B?style=for-the-badge)](https://bayesian-financial-forecasting.streamlit.app/)
 
 A comprehensive machine learning project for stock price prediction using LSTM, MC Dropout, Bayesian Neural Networks, and Transformers with probabilistic uncertainty estimation.
+
+## 🚀 Live Demo
+
+**Try the interactive web application:** [https://bayesian-financial-forecasting.streamlit.app/](https://bayesian-financial-forecasting.streamlit.app/)
+
+Explore real-time stock price predictions with uncertainty quantification for 8 major stocks (AAPL, MSFT, GOOGL, TSLA, NVDA, AMZN, META, NFLX) using our deployed Streamlit application.
 
 **Author**: Mohansree Vijayakumar  
 **Email**: mohansreesk14@gmail.com
@@ -15,6 +22,7 @@ A comprehensive machine learning project for stock price prediction using LSTM, 
 
 ## 📋 Table of Contents
 
+- [Live Demo](#-live-demo)
 - [Project Overview](#-project-overview)
 - [Quick Start](#-quick-start)
 - [Project Structure](#-project-structure)
