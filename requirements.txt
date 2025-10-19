@@ -8,6 +8,7 @@ pyarrow>=16.0
 mlflow>=2.14
 optuna>=3.5
 streamlit>=1.36
+plotly>=5.0
 matplotlib>=3.8
 seaborn>=0.13
 tqdm>=4.66
